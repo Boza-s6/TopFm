@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">TopFM</string>
+    <string name="action_settings">Settings</string>
+    <string name="section_format">Hello World from section: %1$d</string>
+    <string name="last10_section">Last 10</string>
+    <string name="top40_section">Top40</string>
+    <string name="news_section">News</string>
+    <string name="send_message_section">Send message</string>
+    <string name="contact_section">Contact</string>
+</resources>
