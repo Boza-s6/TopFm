@@ -12,6 +12,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 
 import nemanja.bozovic.topfm.views.Last10Fragment;
+import nemanja.bozovic.topfm.views.PlaceholderFragment;
 
 public class MainActivity extends AppCompatActivity {
 
