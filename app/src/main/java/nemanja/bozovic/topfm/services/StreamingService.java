@@ -1,6 +1,7 @@
 package nemanja.bozovic.topfm.services;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.os.Binder;
@@ -17,19 +18,19 @@ public class StreamingService extends Service implements MediaPlayer.OnPreparedL
         TimeTicker.TimeChangedListener {
     public interface Listener {
         Listener EMPTY = new Empty();
-        void onSomething();
+        void onStopped();
+        void onStarted();
+        void onChange();
         class Empty implements Listener {
-            @Override public void onSomething() {}
+            @Override public void onStopped() {}
+            @Override public void onStarted() {}
+            @Override public void onChange() {}
         }
     }
 
     private static final String TAG = "StreamingService";
     public static final String ACTION_START_PLAYBACK = TAG + ".action.start.playback";
     public static final String ACTION_STOP_PLAYBACK = TAG + ".action.stop.playback";
-    public static final String STARTED = TAG + ".started";
-    public static final String STOPPED = TAG + ".stopped";
-    private static final Intent sStoppedIntent = new Intent(STOPPED);
-    private static final Intent sStartedIntent = new Intent(STARTED);
 
     private IBinder mStreamingServiceBinder = new StreamingBinder();
     private MediaPlayer mPlayer;
@@ -46,7 +47,6 @@ public class StreamingService extends Service implements MediaPlayer.OnPreparedL
         mPlayer.release();
     }
 
-    @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         return mStreamingServiceBinder;
@@ -71,8 +71,7 @@ public class StreamingService extends Service implements MediaPlayer.OnPreparedL
         } else if (ACTION_STOP_PLAYBACK.equals(intent.getAction()) && mIsStarted) {
             mPlayer.stop();
             mIsStarted = false;
-            sendBroadcast(sStoppedIntent);
-            getListener().onSomething();
+            getListener().onStopped();
         }
         return START_STICKY;
 
@@ -82,8 +81,7 @@ public class StreamingService extends Service implements MediaPlayer.OnPreparedL
     public void onPrepared(MediaPlayer mp) {
         mPlayer.start();
         mIsStarted = true;
-        sendBroadcast(sStartedIntent);
-        getListener().onSomething();
+        getListener().onStarted();
     }
 
     @Override
@@ -97,7 +95,9 @@ public class StreamingService extends Service implements MediaPlayer.OnPreparedL
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    getListener().onSomething();
+                    if (mIsStarted) {
+                        getListener().onStarted();
+                    }
                 }
             });
         }
@@ -115,5 +115,19 @@ public class StreamingService extends Service implements MediaPlayer.OnPreparedL
     }
 
     private void update() {
+    }
+
+    public static Intent getServiceIntent(Context context) {
+        return new Intent(context, StreamingService.class);
+    }
+
+    public static void startService(Context context) {
+        Intent intent = new Intent(context, StreamingService.class);
+        intent.setAction(ACTION_START_PLAYBACK);
+        context.startService(intent);
+    }
+    public static void stopService(Context context) {
+        Intent intent = new Intent(context, StreamingService.class);
+        context.stopService(intent);
     }
 }

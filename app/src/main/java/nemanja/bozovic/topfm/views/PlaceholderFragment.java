@@ -18,15 +18,16 @@ import android.widget.TextView;
 
 import nemanja.bozovic.topfm.R;
 import nemanja.bozovic.topfm.services.StreamingService;
+import nemanja.bozovic.topfm.utils.Utils;
 
 /**
  * A placeholder fragment containing a simple view.
  */
-public class PlaceholderFragment extends Fragment implements StreamingService.Listener {
+public class PlaceholderFragment extends Fragment implements StreamingService.Listener, View.OnClickListener {
     private static final String ARG_SECTION_NUMBER = "section_number";
     private String TAG = "PlaceholderFragment";
-    private Button mPlay;
     private boolean mIsPlaying = false;
+    private boolean mIsbinded = false;
 
     private StreamingService mService;
     private ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -35,6 +36,7 @@ public class PlaceholderFragment extends Fragment implements StreamingService.Li
             if (service instanceof StreamingService.StreamingBinder) {
                 mService = ((StreamingService.StreamingBinder) service).getService();
                 mService.setListener(PlaceholderFragment.this);
+                mIsbinded = true;
             }
         }
 
@@ -43,23 +45,6 @@ public class PlaceholderFragment extends Fragment implements StreamingService.Li
             Log.d(TAG, "onServiceDisconnected: ");
         }
     };
-
-    private BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (StreamingService.STARTED.equals(intent.getAction())) {
-                mIsPlaying = true;
-                mPlay.setText("stop");
-            } else if (StreamingService.STOPPED.equals(intent.getAction())) {
-                mIsPlaying = false;
-                mPlay.setText("Start");
-            }
-        }
-    };
-
-    public PlaceholderFragment() {
-        Log.d(TAG, "PlaceholderFragment: ");
-    }
 
     public static PlaceholderFragment newInstance(int sectionNumber) {
         PlaceholderFragment fragment = new PlaceholderFragment();
@@ -74,26 +59,12 @@ public class PlaceholderFragment extends Fragment implements StreamingService.Li
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         int arg = getArguments().getInt(ARG_SECTION_NUMBER);
-        Log.d(TAG, "onCreateView: arg = " + arg);
         View rootView = inflater.inflate(R.layout.fragment_main, container, false);
         TextView textView = (TextView) rootView.findViewById(R.id.section_label);
         textView.setText(getString(R.string.section_format, arg));
-        mPlay = (Button) rootView.findViewById(R.id.play_button);
-        mPlay.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!mIsPlaying) {
-                    Intent service = new Intent(getActivity(), StreamingService.class);
-                    service.setAction(StreamingService.ACTION_START_PLAYBACK);
-                    getActivity().startService(service);
-                    getActivity().bindService(new Intent(getActivity(), StreamingService.class), mServiceConnection, Context.BIND_AUTO_CREATE);
-                } else {
-                    Intent service = new Intent(getActivity(), StreamingService.class);
-                    service.setAction(StreamingService.ACTION_STOP_PLAYBACK);
-                    getActivity().stopService(service);
-                }
-            }
-        });
+
+        Button play = (Button) rootView.findViewById(R.id.play_button);
+        play.setOnClickListener(this);
 
         return rootView;
     }
@@ -101,20 +72,61 @@ public class PlaceholderFragment extends Fragment implements StreamingService.Li
     @Override
     public void onStart() {
         super.onStart();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(StreamingService.STARTED);
-        filter.addAction(StreamingService.STOPPED);
-        getActivity().registerReceiver(mReceiver, filter);
+        if (Utils.isMyServiceRunning(getActivity(), StreamingService.class)) {
+            bindToService();
+        }
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        getActivity().unregisterReceiver(mReceiver);
+        unbindFromService();
     }
 
     @Override
-    public void onSomething() {
+    public void onStopped() {
+        Log.d(TAG, "onStopped: ");
+        mIsPlaying = false;
+    }
 
+    @Override
+    public void onStarted() {
+        Log.d(TAG, "onStarted: ");
+        mIsPlaying = true;
+    }
+
+    @Override
+    public void onChange() {
+        Log.d(TAG, "onChange: ");
+    }
+
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.play_button:
+                if (!mIsPlaying) {
+                    StreamingService.startService(getActivity());
+                    bindToService();
+                } else {
+                    unbindFromService();
+                    StreamingService.stopService(getActivity());
+                }
+                break;
+        }
+    }
+
+    private void bindToService() {
+        getActivity().bindService(StreamingService.getServiceIntent(getActivity()),
+                mServiceConnection, Context.BIND_ABOVE_CLIENT);
+    }
+
+    private void unbindFromService() {
+        if (mService != null) {
+            mService.setListener(null);
+            mService = null;
+        }
+        if (mIsbinded) {
+            getActivity().unbindService(mServiceConnection);
+        }
     }
 }
